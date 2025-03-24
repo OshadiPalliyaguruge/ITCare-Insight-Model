@@ -1,6 +1,7 @@
+import os
+import glob
 import pickle
 from collections import defaultdict
-from sklearn.metrics.pairwise import cosine_similarity
 import re
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
@@ -24,51 +25,63 @@ def preprocess_text(text):
     tokens = [stemmer.stem(token) for token in tokens if token not in stop_words]
     return tokens
 
-def search(user_question, top_n=3, similarity_threshold=0.2):
+def get_latest_preprocessed_file():
+    """
+    Find the most recent preprocessed_data_*.pkl file.
+    """
+    # List all files matching the pattern
+    files = glob.glob('QnA_Suggestions\\preprocessed_data_*.pkl')
+    if not files:
+        raise FileNotFoundError("No preprocessed data files found.")
+
+    # Get the most recent file based on the timestamp in the filename
+    latest_file = max(files, key=os.path.getctime)
+    return latest_file
+
+def search(user_question, top_n=3, exact_match_threshold=0.8):
     """
     Search the inverted index for the best matches to the user question.
     Returns both the question and the answer.
     """
-    # Load the preprocessed dataset, inverted index, and TF-IDF vectorizer
-    with open('Q&A_Suggestions\\preprocessed_data.pkl', 'rb') as f:
+    # Load the most recent preprocessed data file
+    preprocessed_file = get_latest_preprocessed_file()
+    with open(preprocessed_file, 'rb') as f:
         data = pickle.load(f)
         dataset = data['dataset']
         inverted_index = data['inverted_index']
-        vectorizer = data['vectorizer']
-        tfidf_matrix = data['tfidf_matrix']
 
     # Preprocess the user question
     user_tokens = preprocess_text(user_question)
 
-    # Compute TF-IDF vector for the user question
-    user_tfidf = vectorizer.transform([user_question])
+    # Find matching documents
+    matches = defaultdict(int)
+    for token in user_tokens:
+        if token in inverted_index:
+            for doc_id, summary, resolution in inverted_index[token]:
+                matches[(doc_id, summary, resolution)] += 1
 
-    # Compute cosine similarity between the user question and all summaries
-    similarities = cosine_similarity(user_tfidf, tfidf_matrix).flatten()
+    # Sort matches by frequency
+    sorted_matches = sorted(matches.items(), key=lambda x: x[1], reverse=True)
 
-    # Filter results based on the similarity threshold
-    filtered_indices = [idx for idx, score in enumerate(similarities) if score >= similarity_threshold]
+    # Filter results based on exact match threshold
+    filtered_results = []
+    for (doc_id, summary, resolution), count in sorted_matches:
+        # Calculate the percentage of tokens that match
+        match_percentage = count / len(user_tokens)
+        if match_percentage >= exact_match_threshold:
+            filtered_results.append((summary, resolution))
 
-    # If no results meet the threshold, return a message
-    if not filtered_indices:
-        return [("No relevant question found.", "No relevant answer found.")]
-
-    # Get top N indices with highest similarity
-    top_indices = sorted(filtered_indices, key=lambda idx: similarities[idx], reverse=True)[:top_n]
-
-    # Retrieve the corresponding questions and answers
-    results = []
-    for idx in top_indices:
-        results.append((dataset.iloc[idx]['Summary'], dataset.iloc[idx]['Resolution']))
-
-    return results
+    # Return top N results
+    results = filtered_results[:top_n]
+    return results if results else [("No relevant question found.", "No relevant answer found.")]
 
 # Example usage
 if __name__ == "__main__":
-    user_question = "Unable to Login to PC"
-    results = search(user_question, similarity_threshold=0.2)  # Adjust threshold as needed
+    user_question = "btp"
+    results = search(user_question, exact_match_threshold=0.8)  # Adjust threshold as needed
     print("Search Results:")
     for i, (question, answer) in enumerate(results, 1):
         print(f"\nResult {i}:")
         print(f"Question: {question}")
         print(f"Answer: {answer}")
+

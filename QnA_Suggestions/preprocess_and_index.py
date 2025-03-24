@@ -4,14 +4,17 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 from collections import defaultdict
-from sklearn.feature_extraction.text import TfidfVectorizer
 import pickle
+from datetime import datetime
 
 # Download NLTK resources (run once)
 import nltk
 nltk.download('punkt')
 nltk.download('stopwords')
 nltk.download('punkt_tab')  # Download the required resource
+  
+# Generate a timestamp
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")  # Format: YYYYMMDD_HHMMSS
 
 # Load dataset
 dataset = pd.read_csv('Dataset\\incident_report_q&a_cleaned.csv')
@@ -48,17 +51,11 @@ for idx, row in dataset.iterrows():
     for token in summary_tokens:
         inverted_index[token].append((idx, summary, resolution))  # Include both question and answer
 
-# Compute TF-IDF weights for the dataset
-vectorizer = TfidfVectorizer(stop_words='english')
-tfidf_matrix = vectorizer.fit_transform(dataset['Summary'])
-
-# Save the preprocessed dataset, inverted index, and TF-IDF vectorizer to disk
-with open('Q&A_Suggestions\\preprocessed_data.pkl', 'wb') as f:
+# Save the preprocessed dataset and inverted index to disk
+with open(f'QnA_Suggestions\\preprocessed_data_{timestamp}.pkl', 'wb') as f:
     pickle.dump({
         'dataset': dataset,
-        'inverted_index': inverted_index,
-        'vectorizer': vectorizer,
-        'tfidf_matrix': tfidf_matrix
+        'inverted_index': inverted_index
     }, f)
 
 print("Preprocessing and indexing complete. Data saved to 'preprocessed_data.pkl'.")
