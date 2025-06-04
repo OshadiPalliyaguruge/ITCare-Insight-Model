@@ -90,12 +90,13 @@ Execute cells in order:
 5. Training loop with AdamW, LR scheduler, and early stopping
 6. Evaluation on test set
 
+
 The notebook will automatically create an `output_<timestamp>/` folder and save:
 - `best_trained_model_<timestamp>.pth` (PyTorch state dict)  
 - `advanced_trained_encoder.pkl` (OneHotEncoder)  
 - `advanced_new_y_mapping.pkl` (label mapping)  
 - `advanced_metadata.pkl` (input/output sizes)
-- 
+
 
 #### Model Training Completion 
   ![image](https://github.com/user-attachments/assets/9545bfef-ede6-4c48-8466-6d1fb012151f)
